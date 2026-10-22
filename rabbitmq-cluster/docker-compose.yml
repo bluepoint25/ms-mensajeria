@@ -4,11 +4,12 @@ x-rabbitmq-node: &rabbitmq-node
   image: rabbitmq:3.13-management-alpine
   # Al reiniciar la máquina (o al hacer Start Lab) los nodos vuelven solos
   restart: always
+  # Credenciales desde .env (en la nube las genera Terraform); en local, valores de desarrollo
   environment:
-    RABBITMQ_DEFAULT_USER: guest
-    RABBITMQ_DEFAULT_PASS: guest
+    RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+    RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     # Mismo cookie en todos los nodos: es la "contraseña" con que se reconocen entre sí
-    RABBITMQ_ERLANG_COOKIE: tienda-native-cluster-cookie
+    RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-tienda-native-cluster-cookie}
   networks:
     - rabbitmq_cluster
   healthcheck:
