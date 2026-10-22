@@ -1,0 +1,65 @@
+# Cluster de 3 nodos. Tres es el mínimo para tolerar la caída de uno:
+# las colas quorum necesitan mayoría (2 de 3) para seguir aceptando mensajes.
+x-rabbitmq-node: &rabbitmq-node
+  image: rabbitmq:3.13-management-alpine
+  # Al reiniciar la máquina (o al hacer Start Lab) los nodos vuelven solos
+  restart: always
+  environment:
+    RABBITMQ_DEFAULT_USER: guest
+    RABBITMQ_DEFAULT_PASS: guest
+    # Mismo cookie en todos los nodos: es la "contraseña" con que se reconocen entre sí
+    RABBITMQ_ERLANG_COOKIE: tienda-native-cluster-cookie
+  networks:
+    - rabbitmq_cluster
+  healthcheck:
+    test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+    interval: 10s
+    timeout: 10s
+    retries: 10
+
+services:
+  rabbitmq-1:
+    <<: *rabbitmq-node
+    container_name: rabbitmq-1
+    hostname: rabbitmq-1
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data_1:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+
+  rabbitmq-2:
+    <<: *rabbitmq-node
+    container_name: rabbitmq-2
+    hostname: rabbitmq-2
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq_data_2:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    depends_on:
+      - rabbitmq-1
+
+  rabbitmq-3:
+    <<: *rabbitmq-node
+    container_name: rabbitmq-3
+    hostname: rabbitmq-3
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    volumes:
+      - rabbitmq_data_3:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    depends_on:
+      - rabbitmq-1
+
+volumes:
+  rabbitmq_data_1:
+  rabbitmq_data_2:
+  rabbitmq_data_3:
+
+networks:
+  rabbitmq_cluster:
+    driver: bridge

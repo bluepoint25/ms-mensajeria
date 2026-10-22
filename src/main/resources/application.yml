@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: ms-mensajeria
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://cognito-idp.${AWS_REGION:us-east-1}.amazonaws.com/${COGNITO_USER_POOL_ID:us-east-1_SOtYxhxql}
+
+  rabbitmq:
+    # Lista de nodos del cluster: si el nodo conectado cae, se reconecta al siguiente
+    addresses: ${RABBITMQ_ADDRESSES:localhost:5672,localhost:5673,localhost:5674}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        # ACK manual: cada consumidor decide explícitamente basicAck / basicNack
+        acknowledge-mode: manual
+        # Fair dispatch: un mensaje sin confirmar por consumidor a la vez
+        prefetch: 1
+        # Si el listener lanza una excepción no controlada, se rechaza sin requeue (va a su DLQ)
+        default-requeue-rejected: false
+
+server:
+  port: ${PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://main.d2zvrnvwyv08pa.amplifyapp.com}
+
+# ===== Topología de mensajería: ÚNICO lugar donde se definen los nombres =====
+mensajeria:
+  exchanges:
+    productos: productos.direct.exchange       # direct: enruta por routing key exacta
+    notificaciones: notificaciones.topic.exchange  # topic: enruta por patrón (notificacion.#)
+    dlx: mensajeria.dlx                        # direct: cada cola muerta va a su propia DLQ
+  colas:
+    auditoria: auditoria.queue
+    inventario: inventario.queue
+    notificaciones: notificaciones.queue
+  dlqs:
+    auditoria: auditoria.dlq
+    inventario: inventario.dlq
+    notificaciones: notificaciones.dlq
+  routing-keys:
+    producto-creado: producto.creado
+    producto-actualizado: producto.actualizado
+    producto-eliminado: producto.eliminado
+    stock-bajo: stock.bajo
+    notificaciones-patron: "notificacion.#"
+    notificacion-stock-bajo: notificacion.stock.bajo
+  # Intentos totales antes de mandar un mensaje a la DLQ (errores transitorios)
+  max-intentos: 3
+  retencion-dlq-ms: 86400000
+  max-mensajes-por-cola: 1000
+
+logging:
+  level:
+    root: INFO
+    com.tiendanative: DEBUG
